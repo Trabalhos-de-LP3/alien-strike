@@ -16,8 +16,8 @@ public class CarregadorImagens {
 
     /*
      * carrega uma imagem do classpath e armazena em cache
-     * @param caminho caminho relativo dentro de /resources (ex: "/sprites/guerreiro/parado_0.png")
-     * @return BufferedImage carregada, ou null se não encontrada.
+     * caminho relativo dentro de /resources (ex: "/sprites/guerreiro/parado_0.png")
+     * BufferedImage carregada, ou null se não encontrada.
      */
     
     public static BufferedImage carregar(String caminho) {
@@ -43,10 +43,10 @@ public class CarregadorImagens {
 
     /*
      * carrega uma sequência de frames de animação
-     * Convenção: nomeArquivo_0.png, nomeArquivo_1.png, ...
-     * @param pastaBase  pasta base (ex: "/sprites/guerreiro/")
-     * @param nomeAcao   nome da ação (ex: "parado", "correndo", "soco")
-     * @param totalFrames quantidade de frames
+     * convenção: nomeArquivo_0.png, nomeArquivo_1.png, ...
+     * pasta base (ex: "/sprites/guerreiro/")
+     * nome da ação (ex: "parado", "correndo", "soco")
+     * totalFrames quantidade de frames
      */
     
     public static BufferedImage[] carregarAnimacao(String pastaBase, String nomeAcao, int totalFrames) {

@@ -4,6 +4,8 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import util.Configuracoes;
+import util.GerenciadorAudio;
+import util.Sons;
 
 public class ProjetilRedemoinho extends Projetil {
 
@@ -65,6 +67,7 @@ public class ProjetilRedemoinho extends Projetil {
         if (getHitbox().intersects(alvo.getHitbox())) {
             vitima = alvo;
             vitima.receberDanoRedemoinho(danoContato); // dano inicial de captura
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_BUMBLEBEE_CAPTURA);
         }
     }
 

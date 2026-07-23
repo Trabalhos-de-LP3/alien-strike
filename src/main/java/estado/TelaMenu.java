@@ -11,6 +11,9 @@ import java.awt.RenderingHints;
 import util.CarregadorImagens;
 import java.awt.image.BufferedImage;
 
+import util.GerenciadorAudio;
+import util.Sons;
+
 // tela de menu principal
 // exibe o título do jogo e opções de navegação
 // confirmar com ENTER inicia a seleção de personagens
@@ -32,8 +35,11 @@ public class TelaMenu {
     private int contadorPisca = 0;
 
     public void atualizar(CapturaTeclado teclado) {
-        // navegação pelo menu com as setas ou A/D
-        // ENTER confirma, ESC sai
+        // o confirmar em si é tratado pelo PainelJogo,
+        // mas tocamos o efeito aqui quando a tecla é pressionada
+        if (teclado.confirmar) {
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_CONFIRMAR);
+        }
     }
 
     public void desenhar(Graphics2D g2) {

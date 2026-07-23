@@ -3,7 +3,9 @@ package entidade;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
-import entidade.lutadores.Guerreiro; // importe a classe do Kree
+import entidade.lutadores.Guerreiro;
+import util.GerenciadorAudio;
+import util.Sons; // importe a classe do Kree
 
 public class ProjetilExplosivo extends Projetil {
     private int tempoVida;
@@ -33,6 +35,7 @@ public class ProjetilExplosivo extends Projetil {
         explodindo = true; // trava a explosão
         velX = 0;
         adversario.receberDano(danoExplosao);
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_KREE_EXPLOSAO);
     }
     
     @Override
@@ -54,7 +57,10 @@ public class ProjetilExplosivo extends Projetil {
         if (!explodindo) {
             super.atualizar(); // movimento normal
             tempoVida--;
-            if (tempoVida <= 0) explodindo = true;
+            if (tempoVida <= 0) {
+                explodindo = true;
+                GerenciadorAudio.tocarEfeito(Sons.EFEITO_KREE_EXPLOSAO);
+            }
         } else {
             // lógica de animação da explosão
             timerExplosao++;

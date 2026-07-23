@@ -17,8 +17,8 @@ public class DetectorColisao {
      * verifica e aplica dano entre dois lutadores, nos dois sentidos
      * deve ser chamado uma vez por frame no estado de luta
      *
-     * @param lutador1 Jogador 1
-     * @param lutador2 Jogador 2
+     * lutador1 = Jogador 1
+     * lutador2 = Jogador 2
      */
 	
     public void verificar(Lutador lutador1, Lutador lutador2) {

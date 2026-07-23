@@ -6,41 +6,23 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-/*
- * gerenciador central de áudio do jogo
- *
- * suporta dois tipos de som:
- *  - música de fundo (loop contínuo, uma por vez)
- *  - efeitos sonoros (disparados pontualmente, sobreposição permitida)
- *
- * uso:
- *   GerenciadorAudio.tocarMusica("/sons/musica/tema_menu.wav");
- *   GerenciadorAudio.tocarEfeito("/sons/efeitos/soco.wav");
- *   GerenciadorAudio.setVolumeMusicaPorcento(70);
- */
-
 public class GerenciadorAudio {
 
-    // cache de clips de efeito
     private static final Map<String, byte[]> cacheEfeitos = new HashMap<>();
 
-    // música atual
     private static Clip clipMusica;
     private static String caminhoMusicaAtual = "";
 
-    // volumes (0.0 a 1.0)
-    private static float volumeMusica  = 0.7f;
-    private static float volumeEfeitos = 1.0f;
+    // clip dedicado para sons em loop (ex: carga de transformação)
+    private static Clip clipLoop;
 
-    // flag global de mudo
+    private static float volumeMusica  = 0.2f;
+    private static float volumeEfeitos = 2.0f;
     private static boolean mudo = false;
 
     // --------------------------------------------------------
     //  música de fundo
 
-    // toca uma música em loop. Se já estiver tocando a mesma, não reinicia
-    // @param caminho Ex: "/sons/musica/tema_luta.wav"
-    
     public static void tocarMusica(String caminho) {
         if (mudo) return;
         if (caminho.equals(caminhoMusicaAtual) && clipMusica != null && clipMusica.isRunning()) return;
@@ -65,44 +47,28 @@ public class GerenciadorAudio {
         }
     }
 
-    // para a música atual imediatamente
     public static void pararMusica() {
-        if (clipMusica != null && clipMusica.isRunning()) {
-            clipMusica.stop();
-        }
-        if (clipMusica != null) {
-            clipMusica.close();
-        }
+        if (clipMusica != null && clipMusica.isRunning()) clipMusica.stop();
+        if (clipMusica != null) clipMusica.close();
         clipMusica = null;
         caminhoMusicaAtual = "";
     }
 
-    // pausa a música atual sem descartá-la
     public static void pausarMusica() {
-        if (clipMusica != null && clipMusica.isRunning()) {
-            clipMusica.stop();
-        }
+        if (clipMusica != null && clipMusica.isRunning()) clipMusica.stop();
     }
 
-    // retoma a música pausada
     public static void retomarMusica() {
         if (mudo) return;
-        if (clipMusica != null && !clipMusica.isRunning()) {
-            clipMusica.start();
-        }
+        if (clipMusica != null && !clipMusica.isRunning()) clipMusica.start();
     }
 
-    // ------------------------------------------------------------
-    //  efeitos sonoros
-
-    // toca um efeito sonoro uma vez
-    // múltiplas chamadas sobrepostas são permitidas (cada uma cria seu próprio Clip)
-    // @param caminho Ex: "/sons/efeitos/soco.wav"
+    // --------------------------------------------------------
+    //  efeitos sonoros pontuais
 
     public static void tocarEfeito(String caminho) {
         if (mudo) return;
 
-        // carrega os bytes em cache para evitar I/O repetido
         byte[] dados = cacheEfeitos.computeIfAbsent(caminho, k -> carregarBytes(k));
         if (dados == null) return;
 
@@ -112,51 +78,79 @@ public class GerenciadorAudio {
             Clip clip = AudioSystem.getClip();
             clip.open(audioStream);
             aplicarVolumeEfeito(clip);
-
-            // libera o Clip automaticamente quando terminar
             clip.addLineListener(evento -> {
-                if (evento.getType() == LineEvent.Type.STOP) {
-                    clip.close();
-                }
+                if (evento.getType() == LineEvent.Type.STOP) clip.close();
             });
-
             clip.start();
         } catch (UnsupportedAudioFileException | LineUnavailableException | IOException e) {
             System.err.println("[Audio] Erro ao tocar efeito: " + caminho);
         }
     }
 
-    // pré-carrega um efeito para evitar atraso no primeiro disparo
     public static void preCarregarEfeito(String caminho) {
         cacheEfeitos.computeIfAbsent(caminho, k -> carregarBytes(k));
     }
 
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------
+    //  som em loop controlado (ex: carga de transformação)
+
+    // inicia um som em loop. Se o mesmo caminho já estiver tocando, não reinicia.
+    public static void iniciarLoop(String caminho) {
+        if (mudo) return;
+
+        // já está tocando esse mesmo loop, não faz nada
+        if (clipLoop != null && clipLoop.isRunning()) return;
+
+        pararLoop();
+
+        byte[] dados = cacheEfeitos.computeIfAbsent(caminho, k -> carregarBytes(k));
+        if (dados == null) return;
+
+        try {
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(
+                    new java.io.ByteArrayInputStream(dados));
+            clipLoop = AudioSystem.getClip();
+            clipLoop.open(audioStream);
+            aplicarVolumeEfeito(clipLoop);
+            clipLoop.loop(Clip.LOOP_CONTINUOUSLY);
+            clipLoop.start();
+        } catch (UnsupportedAudioFileException | LineUnavailableException | IOException e) {
+            System.err.println("[Audio] Erro ao iniciar loop: " + caminho);
+        }
+    }
+
+    // para o som em loop imediatamente
+    public static void pararLoop() {
+        if (clipLoop != null) {
+            clipLoop.stop();
+            clipLoop.close();
+            clipLoop = null;
+        }
+    }
+
+    // --------------------------------------------------------
     //  controle de volume
 
-    // define volume da música (0 a 100)
     public static void setVolumeMusicaPorcento(int porcento) {
         volumeMusica = Math.max(0, Math.min(100, porcento)) / 100f;
         aplicarVolumeMusica();
     }
 
-    // define volume dos efeitos (0 a 100)
     public static void setVolumeEfetosPorcento(int porcento) {
         volumeEfeitos = Math.max(0, Math.min(100, porcento)) / 100f;
     }
 
-    // ativa ou desativa o mudo global
     public static void setMudo(boolean estado) {
         mudo = estado;
-        if (mudo) pausarMusica();
+        if (mudo) { pausarMusica(); pararLoop(); }
         else      retomarMusica();
     }
 
-    public static boolean isMudo()           { return mudo; }
+    public static boolean isMudo()               { return mudo; }
     public static int getVolumeMusicaPorcento()  { return (int)(volumeMusica  * 100); }
     public static int getVolumeEfetosPorcento()  { return (int)(volumeEfeitos * 100); }
 
-    // ---------------------------------------------------------------
+    // --------------------------------------------------------
     //  privados
 
     private static void aplicarVolumeMusica() {
@@ -171,7 +165,6 @@ public class GerenciadorAudio {
     private static void aplicarVolume(Clip clip, float volume) {
         if (clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
             FloatControl ganho = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-            // converte de 0..1 linear para dB (escala logarítmica)
             float dB = volume == 0 ? ganho.getMinimum() : (float)(Math.log10(volume) * 20);
             dB = Math.max(ganho.getMinimum(), Math.min(ganho.getMaximum(), dB));
             ganho.setValue(dB);

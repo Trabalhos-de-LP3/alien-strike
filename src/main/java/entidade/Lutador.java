@@ -143,16 +143,23 @@ public abstract class Lutador {
         // lógica de carregar transformação
         if (transformar && !transformado && cooldownTransformacao <= 0) {
             framesSegurandoTransformacao++;
+            // inicia o loop de carga enquanto o botão está pressionado
+            GerenciadorAudio.iniciarLoop(Sons.EFEITO_CARREGAR_TRANSFORMACAO);
+
             if (framesSegurandoTransformacao >= TEMPO_CARGA_TRANSFORMACAO) {
-                // completou os 4 segundos
+                // carga completa: para o loop e toca o som de ativação
+                GerenciadorAudio.pararLoop();
                 transformado = true;
                 timerTransformacaoAtiva = DURACAO_TRANSFORMACAO;
                 framesSegurandoTransformacao = 0;
-                GerenciadorAudio.tocarEfeito(Sons.EFEITO_ESPECIAL); // toca um som de aviso
-                ativarTransformacao(); 
+                GerenciadorAudio.tocarEfeito(Sons.EFEITO_TRANSFORMACAO);
+                ativarTransformacao();
             }
         } else {
-            // se o jogador soltar o botão antes dos 4 segundos, zera a carga
+            // botão solto antes de completar: para o loop imediatamente
+            if (framesSegurandoTransformacao > 0) {
+                GerenciadorAudio.pararLoop();
+            }
             framesSegurandoTransformacao = 0;
         }
 
@@ -221,11 +228,10 @@ public abstract class Lutador {
         contadorFrames = 0;
 
         switch (acao) {
-            case SOCOS:    GerenciadorAudio.tocarEfeito(Sons.EFEITO_SOCO);     break;
-            case CHUTE:    GerenciadorAudio.tocarEfeito(Sons.EFEITO_CHUTE);    break;
-            case ESPECIAL: GerenciadorAudio.tocarEfeito(Sons.EFEITO_ESPECIAL); break;
-            default: break;
-        }
+        case SOCOS: GerenciadorAudio.tocarEfeito(Sons.EFEITO_SOCO);  break;
+        case CHUTE: GerenciadorAudio.tocarEfeito(Sons.EFEITO_CHUTE); break;
+        default: break;
+    }
     }
 
     private void atualizarTimers() {

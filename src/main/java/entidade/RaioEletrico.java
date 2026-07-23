@@ -1,6 +1,8 @@
 package entidade;
 
 import util.Configuracoes;
+import util.GerenciadorAudio;
+import util.Sons;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
@@ -51,6 +53,7 @@ public class RaioEletrico {
         if (getHitbox().intersects(alvo.getHitbox())) {
             alvo.receberDano(dano);
             jaDeuDano = true;
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_BUMBLEBEE_RAIO_IMPACTO);
         }
     }
 

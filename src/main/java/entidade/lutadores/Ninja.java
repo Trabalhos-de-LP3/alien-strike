@@ -4,11 +4,15 @@ import entidade.AcaoLutador;
 import entidade.Lutador;
 import entidade.Projetil;
 import util.CarregadorImagens;
+import util.GerenciadorAudio;
+import util.Sons;
 import util.Configuracoes;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
+import javax.sound.sampled.*;
+import java.io.IOException;
 
 public class Ninja extends Lutador {
 
@@ -31,6 +35,9 @@ public class Ninja extends Lutador {
     // variáveis para salvar os status originais
     private int danoSocoOriginal;
     private float velocidadeOriginal;
+
+    // clip dedicado ao loop de eletricidade da transformação
+    private Clip clipEletricidade = null;
 
     public Ninja() {
         this.nome             = "Saiyajin";
@@ -90,18 +97,49 @@ public class Ninja extends Lutador {
     }
 
     // ----------------------------------------------------
+    //  loop de eletricidade
+
+    private void iniciarLoopEletricidade() {
+        try {
+            var is = getClass().getResourceAsStream(Sons.EFEITO_SAIYAJIN_ELETRICIDADE);
+            if (is == null) {
+                System.err.println("[Audio] Efeito não encontrado: " + Sons.EFEITO_SAIYAJIN_ELETRICIDADE);
+                return;
+            }
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(
+                new java.io.BufferedInputStream(is));
+            clipEletricidade = AudioSystem.getClip();
+            clipEletricidade.open(audioStream);
+            clipEletricidade.loop(Clip.LOOP_CONTINUOUSLY);
+            clipEletricidade.start();
+        } catch (UnsupportedAudioFileException | LineUnavailableException | IOException e) {
+            System.err.println("[Audio] Erro ao iniciar eletricidade: " + e.getMessage());
+        }
+    }
+
+    private void pararLoopEletricidade() {
+        if (clipEletricidade != null) {
+            clipEletricidade.stop();
+            clipEletricidade.close();
+            clipEletricidade = null;
+        }
+    }
+
+    // ----------------------------------------------------
     //  mecânica de transformação
 
     @Override
     protected void ativarTransformacao() {
         this.danoSoco   = this.danoSocoOriginal * 2;
         this.velocidade = this.velocidadeOriginal + 10.0f;
+        iniciarLoopEletricidade();
     }
 
     @Override
     protected void desativarTransformacao() {
         this.danoSoco   = this.danoSocoOriginal;
         this.velocidade = this.velocidadeOriginal;
+        pararLoopEletricidade();
     }
 
     // ---------------------------------------------------------------
@@ -122,6 +160,8 @@ public class Ninja extends Lutador {
         if (x < 0) x = 0;
         if (x + largura > Configuracoes.LARGURA_TELA)
             x = Configuracoes.LARGURA_TELA - largura;
+
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_SAIYAJIN_TELETRANSPORTE);
     }
 
     @Override
@@ -136,6 +176,7 @@ public class Ninja extends Lutador {
 
         Projetil energia = new Projetil(xTiro, yTiro, velTiro, larguraTiro, alturaTiro, danoTiro, viradoParaDireita, animRajadaEnergia);
         this.projeteis.add(energia);
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_SAIYAJIN_RAJADA);
     }
 
     public void setAdversario(Lutador adversario) {
@@ -144,7 +185,7 @@ public class Ninja extends Lutador {
 
     // --------------------------------------------------------
     //  renderização em camadas
-    //  aura -> sprite -> trovão -> eletricidade
+    //  aura -> trovão -> sprite -> eletricidade
 
     @Override
     public void desenhar(Graphics2D g2) {
@@ -157,24 +198,20 @@ public class Ninja extends Lutador {
         }
 
         // 2. Trovão ao redor (atrás do personagem e da eletricidade)
-        if (transformado) {
-            if (animTrovao != null && animTrovao.length > 0) {
-                BufferedImage frameTrovaoAtual = animTrovao[frameTrovao % animTrovao.length];
-                if (frameTrovaoAtual != null) {
-                    int tw = largura + 60;
-                    int th = altura  + 60;
-                    int tx = (int) x - 30;
-                    int ty = (int) y - 30;
-                    if (viradoParaDireita) {
-                        g2.drawImage(frameTrovaoAtual, tx, ty, tw, th, null);
-                    } else {
-                        g2.drawImage(frameTrovaoAtual, tx + tw, ty, -tw, th, null);
-                    }
+        if (transformado && animTrovao != null && animTrovao.length > 0) {
+            BufferedImage frameTrovaoAtual = animTrovao[frameTrovao % animTrovao.length];
+            if (frameTrovaoAtual != null) {
+                int tw = largura + 60;
+                int th = altura  + 60;
+                int tx = (int) x - 30;
+                int ty = (int) y - 30;
+                if (viradoParaDireita) {
+                    g2.drawImage(frameTrovaoAtual, tx, ty, tw, th, null);
+                } else {
+                    g2.drawImage(frameTrovaoAtual, tx + tw, ty, -tw, th, null);
                 }
             }
-
         }
-        
 
         // 3. Sprite principal do personagem
         super.desenhar(g2);

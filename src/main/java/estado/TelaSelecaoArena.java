@@ -3,6 +3,8 @@ package estado;
 import motor.CapturaTeclado;
 import util.CarregadorImagens;
 import util.Configuracoes;
+import util.GerenciadorAudio;
+import util.Sons;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -31,22 +33,18 @@ public class TelaSelecaoArena {
     
     public String getMusicaArena() {
         return switch (selecao) {
-            case 0 -> util.Sons.MUSICA_CASTELO;
-            case 1 -> util.Sons.MUSICA_SCIFILAB;
-            case 2 -> util.Sons.MUSICA_CITY;
-            case 3 -> util.Sons.MUSICA_CYBERPUNK;
-            default -> util.Sons.MUSICA_CASTELO;
+            case 0 -> Sons.MUSICA_CASTELO;
+            case 1 -> Sons.MUSICA_SCIFILAB;
+            case 2 -> Sons.MUSICA_CITY;
+            case 3 -> Sons.MUSICA_CYBERPUNK;
+            default -> Sons.MUSICA_CASTELO;
         };
     }
 
-    // carrega as previews e o fundo de uma vez só
     public TelaSelecaoArena() {
-        // carrega as imagens pequenas das arenas
         for (int i = 0; i < CAMINHOS.length; i++) {
             previews[i] = CarregadorImagens.carregar(CAMINHOS[i]);
         }
-        
-        // carrega a imagem de fundo com tratamento de erro
         try {
             fundoMenu = ImageIO.read(getClass().getResourceAsStream("/sprites/cenario/espacoAzul.png"));
         } catch (IOException | IllegalArgumentException e) {
@@ -61,36 +59,35 @@ public class TelaSelecaoArena {
         if (teclado.j1Esquerda || teclado.j2Esquerda) {
             selecao = (selecao - 1 + NOMES.length) % NOMES.length;
             cooldown = 15;
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_SELECIONAR);
         }
         if (teclado.j1Direita || teclado.j2Direita) {
             selecao = (selecao + 1) % NOMES.length;
             cooldown = 15;
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_SELECIONAR);
         }
         if (teclado.confirmar) {
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_CONFIRMAR);
             confirmado = true;
             teclado.confirmar = false;
         }
     }
 
     public void desenhar(Graphics2D g2) {
-        // fundo
-    	if (fundoMenu != null) {
-    	    g2.drawImage(fundoMenu, 0, 0, Configuracoes.LARGURA_TELA, Configuracoes.ALTURA_TELA, null);
-    	} else {
-    	    g2.setColor(new Color(15, 10, 35));
-    	    g2.fillRect(0, 0, Configuracoes.LARGURA_TELA, Configuracoes.ALTURA_TELA);
-    	}
-    	// overlay escuro para suavizar
-    	g2.setColor(new Color(0, 0, 0, 160));
-    	g2.fillRect(0, 0, Configuracoes.LARGURA_TELA, Configuracoes.ALTURA_TELA);
+        if (fundoMenu != null) {
+            g2.drawImage(fundoMenu, 0, 0, Configuracoes.LARGURA_TELA, Configuracoes.ALTURA_TELA, null);
+        } else {
+            g2.setColor(new Color(15, 10, 35));
+            g2.fillRect(0, 0, Configuracoes.LARGURA_TELA, Configuracoes.ALTURA_TELA);
+        }
+        g2.setColor(new Color(0, 0, 0, 160));
+        g2.fillRect(0, 0, Configuracoes.LARGURA_TELA, Configuracoes.ALTURA_TELA);
 
-        // título
         g2.setFont(new Font("Serif", Font.BOLD, 36));
         g2.setColor(new Color(255, 200, 50));
         String titulo = "ESCOLHA A ARENA";
         g2.drawString(titulo, (Configuracoes.LARGURA_TELA - g2.getFontMetrics().stringWidth(titulo)) / 2, 60);
 
-        // preview da arena selecionada
         int prevW = 600, prevH = 200;
         int prevX = (Configuracoes.LARGURA_TELA - prevW) / 2;
         int prevY = 90;
@@ -104,11 +101,9 @@ public class TelaSelecaoArena {
             g2.setFont(new Font("Arial", Font.PLAIN, 18));
             g2.drawString("(imagem não disponível)", prevX + 200, prevY + 105);
         }
-        // borda do preview
         g2.setColor(new Color(200, 180, 100));
         g2.drawRect(prevX, prevY, prevW, prevH);
 
-        // cards dos cenários
         int cardW = 180, cardH = 80;
         int espacamento = 20;
         int totalW = NOMES.length * cardW + (NOMES.length - 1) * espacamento;
@@ -132,7 +127,6 @@ public class TelaSelecaoArena {
             g2.drawString(nome, xCard + (cardW - g2.getFontMetrics().stringWidth(nome)) / 2, yCard + 47);
         }
 
-        // instrução
         g2.setFont(new Font("Arial", Font.PLAIN, 16));
         g2.setColor(new Color(180, 180, 180));
         String instr = "A/D ou Setas para navegar   |   ENTER para confirmar";
@@ -145,6 +139,6 @@ public class TelaSelecaoArena {
     public void resetar() {
         selecao    = 0;
         confirmado = false;
-        cooldown   = 30;   // absorve input residual
+        cooldown   = 30;
     }
 }

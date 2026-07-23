@@ -6,6 +6,8 @@ import entidade.Projetil;
 import entidade.ProjetilExplosivo;
 import motor.CapturaTeclado;
 import util.CarregadorImagens;
+import util.GerenciadorAudio;
+import util.Sons;
 
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
@@ -141,6 +143,7 @@ public class Guerreiro extends Lutador {
                 // se o adversário encostar na bola de energia, toma dano
                 if (areaCampo.intersects(adversario.getHitbox())) {
                     adversario.receberDano(5); // dano baixo, mas constante
+                    GerenciadorAudio.tocarEfeito(Sons.EFEITO_KREE_CHOQUE);
                 }
                 cooldownDanoArea = 0;
             }
@@ -188,7 +191,7 @@ public class Guerreiro extends Lutador {
     @Override
     protected void ativarTransformacao() {
         this.danoSoco = this.danoSocoOriginal + 10;
-        // não mexe na velocidade se a bola de energia acompanha ele normalmente
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_KREE_CAMPO_ENERGIA);
     }
 
     @Override
@@ -204,6 +207,7 @@ public class Guerreiro extends Lutador {
         // spawna a parede à frente do lutador
         float xParede = viradoParaDireita ? x + largura + 5 : x - 80;
         paredesChamas.add(new ParedeChamas(xParede, y, animParedeChamas));
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_KREE_PAREDE_CHAMAS);
     }
 
     @Override
@@ -228,6 +232,7 @@ public class Guerreiro extends Lutador {
         	);
         
         this.projeteis.add(bala);
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_KREE_DISPARO);
     }
 
     // ----------------------------------------------------------------

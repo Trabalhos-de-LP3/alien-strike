@@ -5,6 +5,8 @@ import entidade.Lutador;
 import entidade.Projetil;
 import motor.CapturaTeclado;
 import util.CarregadorImagens;
+import util.GerenciadorAudio;
+import util.Sons;
 import util.Configuracoes;
 
 import java.awt.Color;
@@ -12,6 +14,8 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
+import javax.sound.sampled.*;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -36,8 +40,7 @@ public class Barbaro extends Lutador {
     //  especial 2: Golpe de Martelo
     
     private GolpeMartelo golpeMartelo = null;
-
-    private BufferedImage[] animGolpeMartelo; // 12 frames (golpeMartelo_0 a golpeMartelo_11)
+    private BufferedImage[] animGolpeMartelo;
 
     // -----------------------------------------------------------
     //  transformação: Bolas de fogo + Caveiras + Fogo Mágico
@@ -45,7 +48,6 @@ public class Barbaro extends Lutador {
     private List<BolaDeFogo> bolasDeFogo = new ArrayList<>();
     private static final int COOLDOWN_BOLA_MAX = 20;
     private int cooldownBola = 0;
-
     private int anguloCaveiras = 0;
 
     private BufferedImage[] animBolaDeFogo;
@@ -57,12 +59,16 @@ public class Barbaro extends Lutador {
     private int frameAura    = 0;
     private int contadorAura = 0;
 
-    // fogo mágico (aura ao redor durante transformação)
     private BufferedImage[] animFogoMagico;
     private int frameFogo    = 0;
     private int contadorFogo = 0;
 
     private static final Random random = new Random();
+
+    // ----------------------------------------------------------
+    // loop de fogo durante a transformação
+    
+    private Clip clipFogoLoop = null;
 
     // --------------------------------------------------------
     //  construtor
@@ -194,6 +200,7 @@ public class Barbaro extends Lutador {
             float direcao = adversario.getX() > x ? 1f : -1f;
             adversario.empurrar(direcao * FORCA_REPULSAO);
             cooldownDanoBarreira = 60;
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_GREY_REPULSAO);
         }
 
         for (Projetil p : adversario.getProjeteis()) {
@@ -233,6 +240,7 @@ public class Barbaro extends Lutador {
             float xBola = random.nextInt(Configuracoes.LARGURA_TELA);
             bolasDeFogo.add(new BolaDeFogo(xBola, animBolaDeFogo, 8 + random.nextInt(5)));
             cooldownBola = COOLDOWN_BOLA_MAX;
+            GerenciadorAudio.tocarEfeito(Sons.EFEITO_GREY_BOLA_FOGO);
         }
 
         for (int i = bolasDeFogo.size() - 1; i >= 0; i--) {
@@ -241,6 +249,7 @@ public class Barbaro extends Lutador {
             if (b.getHitbox().intersects(adversario.getHitbox()) && b.isAtiva()) {
                 adversario.receberDano(15);
                 b.desativar();
+                GerenciadorAudio.tocarEfeito(Sons.EFEITO_GREY_BOLA_FOGO_IMPACTO);
             }
             if (!b.isAtiva()) bolasDeFogo.remove(i);
         }
@@ -266,24 +275,52 @@ public class Barbaro extends Lutador {
         vidaBarreira         = DURACAO_BARREIRA;
         frameBarreira        = 0;
         cooldownDanoBarreira = 0;
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_GREY_BARREIRA);
     }
 
     @Override
     public void executarEspecial2() {
         if (golpeMartelo != null) return;
 
-        // spawna na frente do Grey
         float xMartelo = viradoParaDireita ? x + largura : x - GolpeMartelo.MARTELO_W;
-
-        // se estiver no ar, o martelo começa na altura atual do Grey e cai até o chão
         boolean noAr = !noChao;
         float yMartelo = noAr ? y : Configuracoes.ALTURA_CHAO - GolpeMartelo.MARTELO_H;
 
         golpeMartelo = new GolpeMartelo(xMartelo, yMartelo, noAr, animGolpeMartelo, danoEspecial);
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_GREY_MARTELO_INVOCAR);
     }
 
     // --------------------------------------------------------
     //  transformação
+
+    // -----------------------------------------------------------
+    // métodos para o loop de fogo
+
+    private void iniciarLoopFogo() {
+        try {
+            var is = getClass().getResourceAsStream(Sons.EFEITO_GREY_FOGO_LOOP);
+            if (is == null) {
+                System.err.println("[Audio] Efeito não encontrado: " + Sons.EFEITO_GREY_FOGO_LOOP);
+                return;
+            }
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(
+                new java.io.BufferedInputStream(is));
+            clipFogoLoop = AudioSystem.getClip();
+            clipFogoLoop.open(audioStream);
+            clipFogoLoop.loop(Clip.LOOP_CONTINUOUSLY);
+            clipFogoLoop.start();
+        } catch (UnsupportedAudioFileException | LineUnavailableException | IOException e) {
+            System.err.println("[Audio] Erro ao iniciar loop de fogo do Barbaro: " + e.getMessage());
+        }
+    }
+
+    private void pararLoopFogo() {
+        if (clipFogoLoop != null) {
+            clipFogoLoop.stop();
+            clipFogoLoop.close();
+            clipFogoLoop = null;
+        }
+    }
 
     @Override
     protected void ativarTransformacao() {
@@ -292,11 +329,14 @@ public class Barbaro extends Lutador {
         anguloCaveiras = 0;
         frameFogo      = 0;
         contadorFogo   = 0;
+        GerenciadorAudio.tocarEfeito(Sons.EFEITO_GREY_TRANSFORMACAO);
+        iniciarLoopFogo();   // inicia o loop
     }
 
     @Override
     protected void desativarTransformacao() {
         bolasDeFogo.clear();
+        pararLoopFogo();     // para o loop
     }
 
     @Override
@@ -407,19 +447,14 @@ public class Barbaro extends Lutador {
         static final int MARTELO_W = 250;
         static final int MARTELO_H = 250;
 
-        // dano e área de impacto no chão
         private static final int    AREA_IMPACTO_W  = 200;
         private static final int    AREA_IMPACTO_H  = 60;
-        private static final int    DANO_IMPACTO    = 20;   // dano em área (menor que o especial direto)
+        private static final int    DANO_IMPACTO    = 20;
         private static final float  FORCA_REPULSAO  = 350f;
-
-        // queda (quando invocado no ar)
         private static final float GRAVIDADE       = 1.2f;
         private static final float VEL_QUEDA_MAX   = 20f;
-
-        // velocidade de animação (ticks por frame)
-        private static final int TICKS_POR_FRAME_QUEDA    = 3;  // mais rápido durante a queda
-        private static final int TICKS_POR_FRAME_IMPACTO  = 5;  // normal no impacto
+        private static final int TICKS_POR_FRAME_QUEDA    = 3;
+        private static final int TICKS_POR_FRAME_IMPACTO  = 5;
 
         private float x, y;
         private boolean noAr;
@@ -431,10 +466,6 @@ public class Barbaro extends Lutador {
         private int frameAtual     = 0;
         private int contadorFrames = 0;
 
-        // frame a partir do qual o impacto começa (última metade da animação)
-        // frames 0–5: martelo descendo / chegando 
-        // frames 6–11: impacto no chão
-        
         private static final int FRAME_INICIO_IMPACTO = 6;
         private static final int TOTAL_FRAMES         = 12;
 
@@ -447,7 +478,6 @@ public class Barbaro extends Lutador {
             this.noAr   = noAr;
             this.frames = frames;
 
-            // se já está no chão, começa do frame 0 e percorre a animação completa
             if (!noAr) {
                 impactou   = true;
                 frameAtual = 0;
@@ -458,28 +488,23 @@ public class Barbaro extends Lutador {
             if (!ativo) return;
 
             if (noAr && !impactou) {
-                // fase de queda
                 velY = Math.min(velY + GRAVIDADE, VEL_QUEDA_MAX);
                 y   += velY;
 
-                // anima os frames de ddescida em loop até pousar
                 contadorFrames++;
                 if (contadorFrames >= TICKS_POR_FRAME_QUEDA) {
                     contadorFrames = 0;
-                    // cicla apenas nos frames pré-impacto
                     frameAtual = (frameAtual + 1) % FRAME_INICIO_IMPACTO;
                 }
 
-                // pouso: quando a base do martelo toca o chão
                 if (y + MARTELO_H >= Configuracoes.ALTURA_CHAO) {
                     y        = Configuracoes.ALTURA_CHAO - MARTELO_H;
                     impactou = true;
-                    frameAtual = FRAME_INICIO_IMPACTO; // começa a animação de impacto
+                    frameAtual = FRAME_INICIO_IMPACTO;
                     contadorFrames = 0;
                 }
 
             } else {
-                // fase de impacto
                 contadorFrames++;
                 if (contadorFrames >= TICKS_POR_FRAME_IMPACTO) {
                     contadorFrames = 0;
@@ -490,20 +515,18 @@ public class Barbaro extends Lutador {
                     }
                 }
 
-                // cancela projéteis do adversário que baterem no martelo
                 Rectangle hitboxMartelo = new Rectangle((int) x, (int) y, MARTELO_W, MARTELO_H);
                 for (Projetil p : adversario.getProjeteis()) {
                     if (p.isAtivo() && hitboxMartelo.intersects(p.getHitbox()))
                         p.setAtivo(false);
                 }
 
-                // aplica dano + repulsão uma única vez, no primeiro frame do impacto
                 if (!danoAplicado && frameAtual == FRAME_INICIO_IMPACTO) {
                     danoAplicado = true;
+                    util.GerenciadorAudio.tocarEfeito(util.Sons.EFEITO_GREY_MARTELO_IMPACTO);
                     Rectangle areaImpacto = getAreaImpacto();
                     if (areaImpacto.intersects(adversario.getHitbox())) {
                         adversario.receberDano(DANO_IMPACTO);
-                        // repele para o lado oposto ao martelo
                         float direcao = adversario.getX() > x ? 1f : -1f;
                         adversario.empurrar(direcao * FORCA_REPULSAO);
                     }
@@ -511,7 +534,6 @@ public class Barbaro extends Lutador {
             }
         }
 
-        // área de impacto no chão, centralizada abaixo do martelo
         private Rectangle getAreaImpacto() {
             int cx = (int) x + MARTELO_W / 2;
             return new Rectangle(
@@ -530,11 +552,9 @@ public class Barbaro extends Lutador {
             if (frames != null && frames.length > fi && frames[fi] != null) {
                 g2.drawImage(frames[fi], (int) x, (int) y, MARTELO_W, MARTELO_H, null);
             } else {
-                // Fallback visual
                 g2.setColor(new Color(180, 180, 180, 220));
                 g2.fillRect((int) x + MARTELO_W / 2 - 10, (int) y, 20, MARTELO_H - 20);
                 g2.fillRect((int) x, (int) y + 10, MARTELO_W, 30);
-                // onda de choque no impacto
                 if (impactou) {
                     g2.setColor(new Color(255, 255, 100, 150));
                     g2.fillOval((int) x - AREA_IMPACTO_W / 4,
